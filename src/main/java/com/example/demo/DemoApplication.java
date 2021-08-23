@@ -7,6 +7,7 @@ import com.example.demo.component.ComponentDependency;
 import com.example.demo.entity.User;
 import com.example.demo.pojo.UserPojo;
 import com.example.demo.repository.UserRepository;
+import com.example.demo.service.UserService;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -20,6 +21,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import static jdk.nashorn.internal.objects.NativeArray.forEach;
+
 @SpringBootApplication
 public class DemoApplication implements CommandLineRunner {
 
@@ -31,14 +34,16 @@ public class DemoApplication implements CommandLineRunner {
 	private MyBeanWithProperties myBeanWithProperties;
 	private UserPojo userPojo;
 	private UserRepository  userRepository;
+	private UserService userService;
 
-	public DemoApplication(@Qualifier("componentTwoImplement") ComponentDependency componentDependency, MyBean myBean, MyBeanWithDependency myBeanWithDependency, MyBeanWithProperties myBeanWithProperties, UserPojo userPojo, UserRepository userRepository){
+	public DemoApplication(@Qualifier("componentTwoImplement") ComponentDependency componentDependency, MyBean myBean, MyBeanWithDependency myBeanWithDependency, MyBeanWithProperties myBeanWithProperties, UserPojo userPojo, UserRepository userRepository, UserService userService){
 		this.componentDependency = componentDependency;
 		this.myBean = myBean;
 		this.myBeanWithDependency = myBeanWithDependency;
 		this.myBeanWithProperties = myBeanWithProperties;
 		this.userPojo = userPojo;
 		this.userRepository = userRepository;
+		this.userService = userService;
 	}
 
 	public static void main(String[] args) {
@@ -49,10 +54,12 @@ public class DemoApplication implements CommandLineRunner {
 	public void run(String... args) {
 //		ejemplosAnteriores();
 		saveUsersInDataBase();
+		getInformationJpqlFromUser();
+		saveWithErrorTransactional();
 	}
 
 	private void getInformationJpqlFromUser(){
-		LOGGER.info("Usuario con el metodo findByUserEmail" +
+		/*LOGGER.info("Usuario con el metodo findByUserEmail" +
 				userRepository.findByUserEmail("john@domain.com")
 						.orElseThrow(() -> new RuntimeException("No se encontro el usuario")));
 
@@ -61,6 +68,45 @@ public class DemoApplication implements CommandLineRunner {
 
 		userRepository.findByName("john")
 				.forEach(user -> LOGGER.info("Usuario con query method " + user));
+
+		LOGGER.info("Usuario con query method findByEmailAndName " + userRepository.findByEmailAndName("daniela@domain.com", "Daniela")
+				.orElseThrow(() -> new RuntimeException("Usuario no encontrado")));
+
+		userRepository.findByNameLike("%J%")
+				.forEach(user -> LOGGER.info("Usuario findByNameLike " + user));
+
+		userRepository.findByNameOrEmail("user10", null)
+				.forEach(user -> LOGGER.info("Usuario findByNameOrEmail "+ user));*/
+
+		userRepository
+				.findByBirthDateBetween(LocalDate.of(2021,3,1), LocalDate.of(2021,4,2))
+				.forEach(user -> LOGGER.info("Usuario con intervalo findByBirthDateBetween" + user));
+
+		userRepository.findByNameLikeOrderByIdDesc("user")
+				.forEach(user -> LOGGER.info("Usuario encontrado con Like y order Descendente" + user));
+
+		userRepository.findByNameContainingOrderByIdDesc("%user%")
+				.forEach(user -> LOGGER.info("Usuario encontrado con Like y order Descendente" + user));
+
+		LOGGER.info("El usuario apartir del named parameter encontrado es: " + userRepository.getAllByBirthDateAndEmail(LocalDate.of(2021,5,18),"user5@domain.com" )
+				.orElseThrow(() -> new RuntimeException("No se encontro al usuario apartir del named parameter")));
+	}
+
+	private void saveWithErrorTransactional(){
+		User test1 = new User("Test1Transactional1", "TestTransactional1@domain.com", LocalDate.now());
+		User test2 = new User("Test2Transactional2", "test2Transactional1@domain.com", LocalDate.now());
+		User test3 = new User("Test3Transactional3", "TestTransactional1@domain.com", LocalDate.now());
+		User test4 = new User("Test4Transactional4", "test4Transactional1@domain.com", LocalDate.now());
+
+		List<User> users = Arrays.asList(test1,test2,test3,test4);
+
+		try {
+			userService.saveTransactional(users);
+		}catch(Exception e){
+			LOGGER.error("Esta es una exception dentro del metodo transaccional " + e);
+		}
+		userService.getAllUsers()
+				.forEach(user -> LOGGER.info("Este es el usuario dentro del metodo transaccional: " + user));
 	}
 
 	private void saveUsersInDataBase(){
